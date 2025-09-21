@@ -1,0 +1,128 @@
+version: '3.8'
+
+services:
+  user-service:
+    image: ecommerceacr.azurecr.io/user-service:latest
+    build: ./applications/user-service
+    ports:
+      - "3001:3001"
+    environment:
+      - NODE_ENV=production
+    depends_on:
+      - mongodb-users
+    platform: linux/amd64
+
+  product-service:
+    image: ecommerceacr.azurecr.io/product-service:latest
+    build: ./applications/product-service
+    ports:
+      - "3002:3002"
+    environment:
+      - NODE_ENV=production
+    depends_on:
+      - mongodb-products
+    platform: linux/amd64
+
+  order-service:
+    image: ecommerceacr.azurecr.io/order-service:latest
+    build: ./applications/order-service
+    ports:
+      - "3003:3003"
+    environment:
+      - NODE_ENV=production
+    depends_on:
+      - postgres-orders
+    platform: linux/amd64
+
+  api-gateway:
+    image: ecommerceacr.azurecr.io/api-gateway:latest
+    build: ./applications/api-gateway
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=production
+    depends_on:
+      - user-service
+      - product-service
+      - order-service
+    platform: linux/amd64
+
+  mongodb-users:
+    image: mongo:7
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo_users_data:/data/db
+
+  mongodb-products:
+    image: mongo:7
+    ports:
+      - "27018:27017"
+    volumes:
+      - mongo_products_data:/data/db
+
+  postgres-orders:
+    image: postgres:15
+    ports:
+      - "5432:5432"
+    environment:
+      - POSTGRES_DB=ecommerce_orders
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=password
+    volumes:
+      - pg_orders_data:/var/lib/postgresql/data
+
+  prometheus:
+    image: prom/prometheus:latest
+    volumes:
+      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+    ports:
+      - "9090:9090"
+    depends_on:
+      - user-service
+      - product-service
+      - order-service
+
+  grafana:
+    image: grafana/grafana:latest
+    ports:
+      - "3005:3000"
+    depends_on:
+      - prometheus
+
+  elasticsearch:
+    image: elasticsearch:8.9.0
+    environment:
+      - discovery.type=single-node
+    ports:
+      - "9200:9200"
+
+  logstash:
+    image: logstash:8.9.0
+    volumes:
+      - ./monitoring/logstash.conf:/usr/share/logstash/pipeline/logstash.conf:ro
+    ports:
+      - "5044:5044"
+    depends_on:
+      - elasticsearch
+
+  kibana:
+    image: kibana:8.9.0
+    ports:
+      - "5601:5601"
+    depends_on:
+      - elasticsearch
+
+  filebeat:
+    image: docker.elastic.co/beats/filebeat:8.9.0
+    volumes:
+      - ./monitoring/filebeat.yml:/usr/share/filebeat/filebeat.yml:ro
+      - /var/lib/docker/containers:/var/lib/docker/containers:ro
+      - /var/log:/var/log:ro
+    depends_on:
+      - logstash
+
+volumes:
+  mongo_users_data:
+  mongo_products_data:
+  pg_orders_data:

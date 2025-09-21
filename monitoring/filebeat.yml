@@ -1,0 +1,21 @@
+filebeat.inputs:
+  - type: container
+    paths:
+      - /var/lib/docker/containers/*/*.log
+    processors:
+      - add_docker_metadata: ~        # Tambah metadata container (nama, image)
+      - decode_json_fields:
+          fields: ["message"]         # Jika log JSON, decode ke fields
+          target: ""
+          overwrite_keys: true
+
+output.logstash:
+  hosts: ["logstash:5044"]           # Alamat dan port Logstash
+
+logging:
+  level: info
+  to_files: true
+  files:
+    path: /var/log/filebeat
+    name: filebeat.log
+    keepfiles: 7

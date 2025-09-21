@@ -1,0 +1,9 @@
+scrape_configs:
+  - job_name: 'microservices'
+    metrics_path: /metrics
+    static_configs:
+      - targets:
+          - 'user-service:3001'
+          - 'product-service:3002'
+          - 'order-service:3003'
+          - 'api-gateway:3000'
